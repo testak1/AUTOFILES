@@ -1,19 +1,33 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// Nyckelord för auto-upptäckt, lägg till/ta bort som du vill
 const RELEVANT_KEYWORDS = [
   "LC", "LAUNCH", "SHIFT", "GEAR", "RPM", "REV",
-  "DTC", "EGR", "DPF", "BOOST", "TORQUE"
+  "DTC", "EGR", "DPF", "BOOST", "TORQUE", "NM", "MS"
 ];
-
-// Visa bara första 32 värden först
 const MAX_SHOW = 32;
+
+// Funktion för att avgöra vilken enhet/redigering som ska användas:
+function getDisplayType(param) {
+  const name = (param.name || "").toUpperCase();
+  const id = (param.id || "").toUpperCase();
+  if (name.includes("RPM") || id.includes("RPM") || name.includes("LAUNCH")) return { unit: "rpm", label: "Varvtal (RPM)" };
+  if (name.includes("TORQUE") || id.includes("TORQUE") || name.includes("NM")) return { unit: "nm", label: "Moment (Nm)" };
+  if (name.includes("SHIFT") || name.includes("GEAR") || name.includes("TIME") || id.includes("MS")) return { unit: "ms", label: "Växlingstid (ms)" };
+  return { unit: param.unit || "", label: param.unit || "" };
+}
 
 function isRelevantTable(p) {
   const name = (p.name || "").toUpperCase();
   const id = (p.id || "").toUpperCase();
   return RELEVANT_KEYWORDS.some(keyword => name.includes(keyword) || id.includes(keyword));
+}
+
+function toPhys(val, factor, offset) {
+  return (Number(val) * factor + offset);
+}
+function fromPhys(phys, factor, offset) {
+  return Math.round((Number(phys) - offset) / factor);
 }
 
 function App() {
@@ -71,9 +85,11 @@ function App() {
     }
   };
 
-  const handleEdit = (i, val) => {
+  const handleEdit = (i, val, displayType, factor, add_offset) => {
     const arr = [...editValues];
-    arr[i] = val;
+    arr[i] = (displayType.unit === "rpm" || displayType.unit === "nm" || displayType.unit === "ms")
+      ? fromPhys(val, factor, add_offset)
+      : val;
     setEditValues(arr);
   };
 
@@ -102,6 +118,11 @@ function App() {
 
   const visibleValues = showAll ? editValues : editValues.slice(0, MAX_SHOW);
 
+  // Hämta label/enhet
+  const displayType = selectedParam ? getDisplayType(selectedParam) : { unit: "", label: "" };
+  const factor = selectedParam?.factor ?? 1;
+  const add_offset = selectedParam?.add_offset ?? 0;
+
   return (
     <div>
       <h1>TCU/ECU Editor</h1>
@@ -122,13 +143,26 @@ function App() {
       {selectedParam && (
         <div>
           <h3>{selectedParam.name} (offset: {selectedParam.offset})</h3>
+          <div style={{fontSize: 'smaller', color: '#555', marginBottom: 6}}>
+            Redigerar i <b>{displayType.label || displayType.unit || selectedParam.unit || "råvärde"}</b>
+            {["rpm", "nm", "ms"].includes(displayType.unit) && (
+              <> (factor: {factor}, offset: {add_offset})</>
+            )}
+          </div>
           <div style={{display: 'flex', flexWrap: 'wrap'}}>
             {visibleValues.map((val, i) => (
               <input
                 key={i}
-                value={val}
-                onChange={e => handleEdit(i, e.target.value)}
-                style={{ width: 60, margin: 2 }}
+                value={
+                  (displayType.unit === "rpm" || displayType.unit === "nm" || displayType.unit === "ms")
+                    ? toPhys(val, factor, add_offset)
+                    : val
+                }
+                onChange={e =>
+                  handleEdit(i, e.target.value, displayType, factor, add_offset)
+                }
+                style={{ width: 80, margin: 2 }}
+                type="number"
               />
             ))}
             {!showAll && editValues.length > MAX_SHOW && (
