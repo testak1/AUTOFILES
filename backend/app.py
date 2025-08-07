@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import os
 from flask_cors import CORS
 from parser import parse_winols_csv, extract_table_from_bin
@@ -24,6 +24,7 @@ def upload_files():
     paramlist = [
         {
             'name': p['name'],
+            'id': p.get('id', ''),
             'offset': p['offset'],
             'columns': p['columns'],
             'rows': p['rows'],
@@ -41,6 +42,22 @@ def get_table():
     rows = data['rows']
     values = extract_table_from_bin(bin_path, offset, columns, rows)
     return jsonify({'values': values})
+
+@app.route('/api/set_table', methods=['POST'])
+def set_table():
+    data = request.json
+    bin_path = os.path.join(app.config['UPLOAD_FOLDER'], data['bin_filename'])
+    offset = int(str(data['offset']).replace('$', '').strip(), 16)
+    values = [int(v) for v in data['values']]
+    # Läs in befintlig bin, skriv över vald tabell
+    with open(bin_path, 'rb') as f:
+        b = bytearray(f.read())
+    b[offset:offset+len(values)] = bytes(values)
+    # Spara som ny fil och skicka tillbaka
+    out_path = bin_path.replace('.bin', '_modded.bin')
+    with open(out_path, 'wb') as f:
+        f.write(b)
+    return send_file(out_path, as_attachment=True, download_name="ny-fil.bin")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
