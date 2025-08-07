@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// Lägg till fler nyckelord efter behov!
+// Nyckelord för auto-upptäckt, lägg till/ta bort som du vill
 const RELEVANT_KEYWORDS = [
-  "LC", "LAUNCH",        // Launch Control
-  "SHIFT", "GEAR",       // Växling
-  "RPM", "REV",          // Varvtal/Rev limiter
-  "DTC", "EGR", "DPF",   // Emission/DTC
-  "BOOST", "TORQUE"      // Exempel
+  "LC", "LAUNCH", "SHIFT", "GEAR", "RPM", "REV",
+  "DTC", "EGR", "DPF", "BOOST", "TORQUE"
 ];
 
-// Auto-filterfunktion för intressanta mappar
+// Visa bara första 32 värden först
+const MAX_SHOW = 32;
+
 function isRelevantTable(p) {
   const name = (p.name || "").toUpperCase();
   const id = (p.id || "").toUpperCase();
@@ -25,8 +24,8 @@ function App() {
   const [tableValues, setTableValues] = useState([]);
   const [editValues, setEditValues] = useState([]);
   const [status, setStatus] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
-  // Uppladdning och filtrering av parametrar
   const handleUpload = async () => {
     if (!csv || !bin) {
       alert('Ladda upp både CSV och BIN!');
@@ -42,7 +41,6 @@ function App() {
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
-      // Filtrera automatiskt efter relevanta mappar
       const filtered = res.data.parameters.filter(isRelevantTable);
       setParams(filtered);
       setStatus(`Hittade ${filtered.length} relevanta mappar!`);
@@ -51,32 +49,34 @@ function App() {
     }
   };
 
-  // Hämta data för vald mapp
   const fetchTable = async (param) => {
     setStatus('Hämtar data...');
-    const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/get_table`,
-      {
-        bin_filename: bin.name,
-        offset: param.offset,
-        columns: param.columns,
-        rows: param.rows,
-      }
-    );
-    setSelectedParam(param);
-    setTableValues(res.data.values);
-    setEditValues(res.data.values); // För redigering
-    setStatus('');
+    setShowAll(false);
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/get_table`,
+        {
+          bin_filename: bin.name,
+          offset: param.offset,
+          columns: param.columns,
+          rows: param.rows,
+        }
+      );
+      setSelectedParam(param);
+      setTableValues(res.data.values);
+      setEditValues(res.data.values);
+      setStatus('');
+    } catch {
+      setStatus('Fel vid laddning av mapp!');
+    }
   };
 
-  // Hantera redigering
   const handleEdit = (i, val) => {
     const arr = [...editValues];
     arr[i] = val;
     setEditValues(arr);
   };
 
-  // Spara och ladda ner ny bin
   const saveEdit = async () => {
     setStatus('Sparar & genererar bin...');
     await axios.post(
@@ -100,6 +100,8 @@ function App() {
     }).catch(() => setStatus('Fel vid sparande!'));
   };
 
+  const visibleValues = showAll ? editValues : editValues.slice(0, MAX_SHOW);
+
   return (
     <div>
       <h1>TCU/ECU Editor</h1>
@@ -121,7 +123,7 @@ function App() {
         <div>
           <h3>{selectedParam.name} (offset: {selectedParam.offset})</h3>
           <div style={{display: 'flex', flexWrap: 'wrap'}}>
-            {editValues.map((val, i) => (
+            {visibleValues.map((val, i) => (
               <input
                 key={i}
                 value={val}
@@ -129,6 +131,12 @@ function App() {
                 style={{ width: 60, margin: 2 }}
               />
             ))}
+            {!showAll && editValues.length > MAX_SHOW && (
+              <div>
+                ...{editValues.length - MAX_SHOW} till.{" "}
+                <button onClick={() => setShowAll(true)}>Visa alla</button>
+              </div>
+            )}
           </div>
           <br />
           <button onClick={saveEdit}>Spara & ladda ner ny bin</button>
