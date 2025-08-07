@@ -21,6 +21,7 @@ def upload_files():
     csv_file.save(csv_path)
     bin_file.save(bin_path)
     params = parse_winols_csv(csv_path)
+    # Skicka med factor, add_offset, unit till frontend
     paramlist = [
         {
             'name': p['name'],
@@ -28,7 +29,10 @@ def upload_files():
             'offset': p['offset'],
             'columns': p['columns'],
             'rows': p['rows'],
-            'type': p['type']
+            'type': p['type'],
+            'factor': p.get('factor', 1),
+            'add_offset': p.get('add_offset', 0),
+            'unit': p.get('unit', '')
         } for p in params
     ]
     return jsonify({'parameters': paramlist})
