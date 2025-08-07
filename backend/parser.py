@@ -22,6 +22,9 @@ def parse_winols_csv(csv_path):
 def extract_table_from_bin(bin_path, offset, columns, rows):
     offset = int(str(offset).replace('$', '').strip(), 16)
     length = int(columns) * int(rows)
+    # Sätt maxgräns för utdrag ur bin, t.ex. max 512 bytes
+    if length > 512:
+        length = 512
     with open(bin_path, 'rb') as f:
         f.seek(offset)
         data = f.read(length)
