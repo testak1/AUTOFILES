@@ -11,6 +11,7 @@ def parse_winols_csv(csv_path):
             continue
         params.append({
             'name': row.get('Name', ''),
+            'id': row.get('IdName', ''),
             'offset': str(offset).replace('$', '').strip(),
             'columns': int(columns) if not pd.isnull(columns) else 1,
             'rows': int(rows) if not pd.isnull(rows) else 1,
