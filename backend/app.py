@@ -1,14 +1,15 @@
 from flask import Flask, request, jsonify
 import os
+from flask_cors import CORS
 from parser import parse_winols_csv, extract_table_from_bin
 
 UPLOAD_FOLDER = './uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
+CORS(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Upload endpoint för CSV & BIN
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     csv_file = request.files.get('csv')
@@ -20,11 +21,26 @@ def upload_files():
     csv_file.save(csv_path)
     bin_file.save(bin_path)
     params = parse_winols_csv(csv_path)
-    # Skicka bara namn & offset först
-    paramlist = [{'name': p['name'], 'offset': p['offset'], 'columns': p['columns'], 'rows': p['rows'], 'type': p['type']} for p in params]
+    paramlist = [
+        {
+            'name': p['name'],
+            'offset': p['offset'],
+            'columns': p['columns'],
+            'rows': p['rows'],
+            'type': p['type']
+        } for p in params
+    ]
     return jsonify({'parameters': paramlist})
 
-# (Kommande endpoints för extrahera/skriva bin kommer här)
+@app.route('/api/get_table', methods=['POST'])
+def get_table():
+    data = request.json
+    bin_path = os.path.join(app.config['UPLOAD_FOLDER'], data['bin_filename'])
+    offset = data['offset']
+    columns = data['columns']
+    rows = data['rows']
+    values = extract_table_from_bin(bin_path, offset, columns, rows)
+    return jsonify({'values': values})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
