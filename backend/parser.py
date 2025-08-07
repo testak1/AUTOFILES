@@ -4,20 +4,23 @@ def parse_winols_csv(csv_path):
     df = pd.read_csv(csv_path, sep=';', encoding='latin1')
     params = []
     for _, row in df.iterrows():
-        if pd.isnull(row.get('Fieldvalues.StartAddr.Cpu')):
+        offset = row.get('Fieldvalues.StartAddr.Cpu', '')
+        columns = row.get('Columns', 1)
+        rows = row.get('Rows', 1)
+        if pd.isnull(offset) or str(offset).strip() == '':
             continue
         params.append({
             'name': row.get('Name', ''),
-            'offset': str(row.get('Fieldvalues.StartAddr.Cpu', '')).replace('$', '').strip(),
-            'columns': int(row.get('Columns', 1)),
-            'rows': int(row.get('Rows', 1)),
+            'offset': str(offset).replace('$', '').strip(),
+            'columns': int(columns) if not pd.isnull(columns) else 1,
+            'rows': int(rows) if not pd.isnull(rows) else 1,
             'type': row.get('Type', '')
         })
     return params
 
 def extract_table_from_bin(bin_path, offset, columns, rows):
     offset = int(str(offset).replace('$', '').strip(), 16)
-    length = columns * rows
+    length = int(columns) * int(rows)
     with open(bin_path, 'rb') as f:
         f.seek(offset)
         data = f.read(length)
