@@ -20,19 +20,22 @@ def upload_files():
     bin_path = os.path.join(UPLOAD_FOLDER, bin_file.filename)
     csv_file.save(csv_path)
     bin_file.save(bin_path)
-    params = parse_winols_csv(csv_path)
-    # Skicka med factor, add_offset, unit till frontend
+    try:
+        params = parse_winols_csv(csv_path)
+    except Exception as e:
+        return jsonify({'error': f'CSV-parse misslyckades: {e}'}), 400
+
     paramlist = [
         {
-            'name': p['name'],
-            'id': p.get('id', ''),
-            'offset': p['offset'],
-            'columns': p['columns'],
-            'rows': p['rows'],
-            'type': p['type'],
-            'factor': p.get('factor', 1),
+            'name'      : p['name'],
+            'id'        : p.get('id', ''),
+            'offset'    : p['offset'],
+            'columns'   : p['columns'],
+            'rows'      : p['rows'],
+            'type'      : p['type'],
+            'factor'    : p.get('factor', 1),
             'add_offset': p.get('add_offset', 0),
-            'unit': p.get('unit', '')
+            'unit'      : p.get('unit', '')
         } for p in params
     ]
     return jsonify({'parameters': paramlist})
@@ -41,10 +44,7 @@ def upload_files():
 def get_table():
     data = request.json
     bin_path = os.path.join(app.config['UPLOAD_FOLDER'], data['bin_filename'])
-    offset = data['offset']
-    columns = data['columns']
-    rows = data['rows']
-    values = extract_table_from_bin(bin_path, offset, columns, rows)
+    values = extract_table_from_bin(bin_path, data['offset'], data['columns'], data['rows'])
     return jsonify({'values': values})
 
 @app.route('/api/set_table', methods=['POST'])
@@ -53,7 +53,6 @@ def set_table():
     bin_path = os.path.join(app.config['UPLOAD_FOLDER'], data['bin_filename'])
     offset = int(str(data['offset']).replace('$', '').strip(), 16)
     values = [int(v) for v in data['values']]
-    # Läs in befintlig bin, skriv över vald tabell
     with open(bin_path, 'rb') as f:
         b = bytearray(f.read())
     b[offset:offset+len(values)] = bytes(values)
