@@ -53,7 +53,6 @@ def set_table():
     with open(bin_path, 'rb') as f:
         b = bytearray(f.read())
     b[offset:offset+len(values)] = bytes(values)
-    # Spara som ny fil och skicka tillbaka
     out_path = bin_path.replace('.bin', '_modded.bin')
     with open(out_path, 'wb') as f:
         f.write(b)
